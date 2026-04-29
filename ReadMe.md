@@ -30,4 +30,4 @@ pnpm dev
 # → http://localhost:3000
 ```
 
-## _HMM algorithms are implemented on hmm_algorithms.py_
+## _HMM algorithms are implemented on [hmm_algorithms.py](https://github.com/Feriel080/hmm-solver/blob/main/lib/hmm_algorithms.py)_
