@@ -1,4 +1,4 @@
-import { cn } from '@/hmm-solver/lib/utils'
+import { cn } from '@/lib/utils'
 
 function Kbd({ className, ...props }: React.ComponentProps<'kbd'>) {
   return (
