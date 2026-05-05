@@ -1,6 +1,6 @@
 'use client';
 
-import { useState} from 'react';
+import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -68,11 +68,11 @@ Q^* = {q_1^*, q_2^*, ..., q_T^*}
 const renderFormulaWithKatex = (formula: string) => {
   // Split by double newlines to separate different equations
   const equations = formula.split('\n\n');
-  
+
   return equations.map((equation, idx) => {
     // Skip empty lines
     if (!equation.trim()) return null;
-    
+
     try {
       // Check if it's a multi-line case statement
       if (equation.includes('\\begin{cases}')) {
@@ -89,17 +89,15 @@ const renderFormulaWithKatex = (formula: string) => {
             return line;
           }
         });
-        
+
         return (
-          <p className="whitespace-pre-wrap">
-          <div 
+          <div
             key={idx}
             className="my-4 overflow-x-auto"
-            dangerouslySetInnerHTML={{ 
-              __html: renderedLines.join('<br />') 
+            dangerouslySetInnerHTML={{
+              __html: renderedLines.join('<br />')
             }}
           />
-          </p>
         );
       } else {
         // Render single line equations
@@ -107,13 +105,13 @@ const renderFormulaWithKatex = (formula: string) => {
           throwOnError: false,
           displayMode: true  // Use display mode for better visibility
         });
-        
+
         return (
-            <div 
-              key={idx}
-              className="my-4 overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+          <div
+            key={idx}
+            className="my-4 overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
         );
       }
     } catch (error) {
@@ -149,11 +147,10 @@ export function AlgorithmFormulas({ selectedAlgorithms }: { selectedAlgorithms: 
       {Object.entries(FORMULAS).map(([key, { name, description, formula }]) => (
         <div
           key={key}
-          className={`border rounded-lg overflow-hidden transition-colors ${
-            selectedAlgorithms.includes(key)
-              ? 'border-primary bg-primary/5'
-              : 'border-border bg-background'
-          }`}
+          className={`border rounded-lg overflow-hidden transition-colors ${selectedAlgorithms.includes(key)
+            ? 'border-primary bg-primary/5'
+            : 'border-border bg-background'
+            }`}
         >
           <button
             onClick={() => toggleExpanded(key)}
@@ -165,16 +162,15 @@ export function AlgorithmFormulas({ selectedAlgorithms }: { selectedAlgorithms: 
             </div>
             <ChevronDown
               size={20}
-              className={`shrink-0 text-muted-foreground transition-transform ${
-                expandedAlgorithms.has(key) ? 'rotate-180' : ''
-              }`}
+              className={`shrink-0 text-muted-foreground transition-transform ${expandedAlgorithms.has(key) ? 'rotate-180' : ''
+                }`}
             />
           </button>
           {expandedAlgorithms.has(key) && (
             <div className="px-4 pb-4 pt-0 border-t border-border bg-muted/30">
               <div className="overflow-x-auto">
                 <div className="bg-background p-4 rounded border border-border font-mono text-xs">
-                  <p className="whitespace-pre-wrap">{renderFormulaWithKatex(formula)}</p>
+                  {renderFormulaWithKatex(formula)}
                 </div>
               </div>
             </div>

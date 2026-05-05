@@ -663,12 +663,21 @@ def discretize_continuous(obs_values, means, sigmas, states, symbols, intervals)
     
     B = []
     for s in range(N):
-        mu, sigma = means[s], sigmas[s]
+        mu, sigma = means[s], sqrt(sigmas[s])
         row = []
         for lo, hi in intervals:
-            phi_hi = norm.cdf((hi  - mu) / sigma) if hi  != inf  else 1.0
-            phi_lo = norm.cdf((lo  - mu) / sigma) if lo  != -inf else 0.0
-            row.append(float(phi_hi - phi_lo))
+            if lo == -inf: 
+                z = (hi - mu) / sigma
+                row.append(float(norm.cdf(z)) if z >= 0 else float(norm.cdf(abs(z))))
+            elif hi == inf:
+                z = (lo - mu) / sigma
+                row.append(float((1 - norm.cdf(z))) if z >= 0 else float((1 - norm.cdf(abs(z)))))
+            else:
+                z1 = (hi - mu) / sigma
+                z2 = (lo - mu) / sigma
+                phi_hi = norm.cdf(z1) if z1 >= 0 else (1 - norm.cdf(abs(z1)))
+                phi_lo = norm.cdf(z2) if z2 >= 0 else (1 - norm.cdf(abs(z2)))
+                row.append(float(phi_hi - phi_lo))
             
         # normalize row (floating point safety)
         # total = sum(row)
