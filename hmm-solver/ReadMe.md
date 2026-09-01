@@ -1,10 +1,5 @@
 # HMM Solver
 
-This project implements **Hidden Markov Models (HMM)** for a specific natural language processing (NLP) task.
-It currently focuses on the French sentence:
-
-> La petite brise la glace
-
 ## Features
 
 The project covers two main variations of HMMs:
