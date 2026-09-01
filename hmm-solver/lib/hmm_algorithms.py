@@ -1,58 +1,6 @@
-import re
 import numpy as np
 from math import exp, sqrt, pi as math_pi, inf
 from scipy.stats import norm
-
-def tokenization(sentence):
-    return re.findall(r'\w+', sentence.lower())
-
-STATE_ORDER = ["DET", "NOUN", "VERB", "ADJ", "PRON"]
-
-def HMM(corpus):
-    states = set()
-    vocab = set()
-    for words, tags in corpus:
-        states.update(tags)
-        vocab.update(words)
-    states = sorted(list(states), key=lambda s: STATE_ORDER.index(s) if s in STATE_ORDER else 999)
-    vocab = list(vocab)
-    n_states = len(states)
-    n_vocab = len(vocab)
-
-    state_idx = {tag: i for i, tag in enumerate(states)}
-    word_idx = {word: i for i, word in enumerate(vocab)}
-
-    start_count = np.zeros(n_states)
-    trans_count = np.zeros((n_states, n_states))
-    emit_count = np.zeros((n_states, n_vocab))
-
-    for words, tags in corpus:
-        start_count[state_idx[tags[0]]] += 1
-        for i in range(len(tags)):
-            s = state_idx[tags[i]]
-            w = word_idx[words[i]]
-            emit_count[s][w] += 1
-            if i + 1 < len(tags):
-                s_next = state_idx[tags[i + 1]]
-                trans_count[s][s_next] += 1
-
-    # Convert to probabilities
-    Pi = start_count / len(corpus)
-
-    A = np.zeros((n_states, n_states))
-    for i in range(n_states):
-        total = np.sum(trans_count[i])
-        if total > 0:
-            A[i] = trans_count[i] / total
-
-    B = np.zeros((n_states, n_vocab))
-    for i in range(n_states):
-        total = np.sum(emit_count[i])
-        if total > 0:
-            B[i] = emit_count[i] / total
-
-    return Pi.tolist(), A.tolist(), B.tolist(), states, vocab
-
 
 # Discrete Algorithms
 def forward_algorithm(obs, Pi, A, B, states, vocab):
@@ -701,31 +649,3 @@ def discretize_continuous(obs_values, means, sigmas, states, symbols, intervals)
         'b_discrete': B,
         'states': states,
     }
-
-# Demo corpus
-DEMO_CORPUS = [
-    (["la", "petite", "brise", "la", "glace"], ["DET", "NOUN", "VERB", "DET", "NOUN"]),
-    (["la", "petite", "brise", "la", "glace"], ["DET", "NOUN", "VERB", "DET", "NOUN"]),
-    (["la", "petite", "brise", "la", "glace"], ["DET", "ADJ", "NOUN", "PRON", "VERB"]), 
-    (["la", "petite", "glace"], ["DET", "ADJ", "NOUN"]),
-    (["la", "petite", "brise"], ["DET", "ADJ", "NOUN"]),
-]
-
-def solve_demo(sentence = "la petite brise la glace"):
-    """Solve the demo ambiguous phrase"""
-    tokens = tokenization(sentence)
-    
-    Pi, A, B, states, vocab = HMM(DEMO_CORPUS)
-    oov = [t for t in tokens if t not in vocab]
-    result = viterbi_algorithm(tokens, Pi, A, B, states, vocab)
-    result['corpus'] = {
-        'states': states,
-        'vocab': vocab,
-        'pi': Pi,
-        'a': A,
-        'b': B
-    }
-    result['baum_welch'] = baum_welch_algorithm([tokens], Pi, A, B, states, vocab, iterations=3)
-    result['oov_words'] = oov 
-    
-    return result

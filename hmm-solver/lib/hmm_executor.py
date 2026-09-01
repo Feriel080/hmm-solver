@@ -2,16 +2,12 @@ import sys
 import json
 import traceback
 import math
-from hmm_algorithms import solve_demo, solve_numerical_hmm, solve_continuous_hmm, discretize_continuous
+from hmm_algorithms import solve_numerical_hmm, solve_continuous_hmm, discretize_continuous
 
 try:
     data = json.loads(sys.argv[1])
-    
-    if data['type'] == 'demo':
-        sentence = data.get('sentence', 'la petite brise la glace')
-        result = solve_demo(sentence)
-        
-    elif data['type'] == 'numerical-discrete':
+ 
+    if data['type'] == 'numerical-discrete':
         result = solve_numerical_hmm(
             data['algorithm'],
             data['observation'],
