@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlgorithmFormulas } from '@/components/AlgorithmFormulas';
 import { ParameterInput } from '@/components/ParameterInput';
 import { ResultsDisplay } from '@/components/ResultsDisplay';
-import { DemoSection } from '@/components/DemoSection';
 
 const DEFAULT_STATES   = ['S1', 'S2'];
 const DEFAULT_OBS_SYM  = ['o1', 'o2', 'o3'];
@@ -21,16 +20,16 @@ const ALGORITHM_OPTIONS = [
 ];
 
 export default function Home() {
-  const [mode, setMode] = useState<'demo' | 'numerical-discrete' | 'numerical-continuous'>('demo');
+  const [mode, setMode] = useState<'numerical-discrete' | 'numerical-continuous'>('numerical-discrete');
   const [algorithms, setAlgorithms] = useState<string[]>(['forward']);
   const [dimension, setDimension]   = useState<'1d' | 'nd'>('1d');
 
   // shared states / vocab
   const [states, setStates] = useState(DEFAULT_STATES);
-  const [vocab,  setVocab]  = useState(DEFAULT_OBS_SYM);
+  const [vocab,  setVocab] = useState(DEFAULT_OBS_SYM);
 
   // continuous observation labels + values
-  const [obsValues, setObsValues]       = useState<string[]>(DEFAULT_OBS_SYM.map(() => ''));
+  const [obsValues, setObsValues] = useState<string[]>(DEFAULT_OBS_SYM.map(() => ''));
 
   // discrete vocab label editing
   const [editingDiscIdx, setEditingDiscIdx] = useState<number | null>(null);
@@ -347,7 +346,7 @@ export default function Home() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">HMM Solver</h1>
           <p className="text-muted-foreground">
-            Explore Hidden Markov Models with Forward, Backward, Viterbi, and Baum-Welch algorithms
+            Calculate Forward, Backward, Viterbi, and Baum-Welch probabilities.
           </p>
         </div>
 
@@ -356,16 +355,10 @@ export default function Home() {
           onValueChange={(v: string) => { setMode(v as typeof mode); setResults(null); }}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="demo">Ambiguous Phrase</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="numerical-discrete">Discrete HMM</TabsTrigger>
             <TabsTrigger value="numerical-continuous">Continuous HMM</TabsTrigger>
           </TabsList>
-
-          {/* ── Demo ── */}
-          <TabsContent value="demo" className="space-y-6">
-            <DemoSection onRun={() => {}} />
-          </TabsContent>
 
           {/* ── Discrete ── */}
           <TabsContent value="numerical-discrete" className="space-y-6">
