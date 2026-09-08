@@ -1,169 +1,6 @@
-/**
- * HMM Solver - Pure JavaScript implementation
- * Equivalent to the Python HMM algorithms (Discrete, Continuous 1D, Continuous N-D)
- * No external dependencies required.
- */
+import NormalDistribution from 'normal-distribution';
 
-// ======================== MATH UTILITIES ========================
-
-function gaussianPDF(o, mu, sigma) {
-  /** 1D Gaussian PDF. Note: sigma here is VARIANCE (matches Python semantics). */
-  const safeSigma = sigma <= 0 ? 1e-9 : sigma;
-  const coeff = 1.0 / Math.sqrt(2 * Math.PI * safeSigma);
-  const exponent = -0.5 * (Math.pow(o - mu, 2) / safeSigma);
-  return coeff * Math.exp(exponent);
-}
-
-function erf(x) {
-  /** Error function approximation (Abramowitz & Stegun) */
-  const a1 =  0.254829592;
-  const a2 = -0.284496736;
-  const a3 =  1.421413741;
-  const a4 = -1.453152027;
-  const a5 =  1.061405429;
-  const p  =  0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  const ax = Math.abs(x);
-  const t = 1.0 / (1.0 + p * ax);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
-  return sign * y;
-}
-
-function normalCDF(z) {
-  /** Standard normal cumulative distribution function */
-  return 0.5 * (1 + erf(z / Math.sqrt(2)));
-}
-
-// -------------------- Small Matrix Linear Algebra --------------------
-
-function zeros(rows, cols) {
-  return Array.from({ length: rows }, () => Array(cols).fill(0.0));
-}
-
-function eye(n) {
-  return Array.from({ length: n }, (_, i) =>
-    Array.from({ length: n }, (_, j) => (i === j ? 1.0 : 0.0))
-  );
-}
-
-function dot(a, b) {
-  return a.reduce((sum, v, i) => sum + v * b[i], 0);
-}
-
-function vecAdd(a, b) {
-  return a.map((v, i) => v + b[i]);
-}
-
-function vecSub(a, b) {
-  return a.map((v, i) => v - b[i]);
-}
-
-function vecScale(v, s) {
-  return v.map(x => x * s);
-}
-
-function matVecMul(A, v) {
-  return A.map(row => dot(row, v));
-}
-
-function matMul(A, B) {
-  const n = A.length, m = B[0].length, p = B.length;
-  const C = zeros(n, m);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < m; j++) {
-      let sum = 0;
-      for (let k = 0; k < p; k++) sum += A[i][k] * B[k][j];
-      C[i][j] = sum;
-    }
-  }
-  return C;
-}
-
-function matAdd(A, B) {
-  return A.map((row, i) => row.map((a, j) => a + B[i][j]));
-}
-
-function matScale(A, s) {
-  return A.map(row => row.map(a => a * s));
-}
-
-function transpose(A) {
-  return A[0].map((_, j) => A.map(row => row[j]));
-}
-
-function outer(a, b) {
-  return a.map(ai => b.map(bj => ai * bj));
-}
-
-function matDet(A) {
-  /** Laplace expansion - fine for small matrices (d <= 5 typical for HMMs) */
-  const n = A.length;
-  if (n === 1) return A[0][0];
-  if (n === 2) return A[0][0] * A[1][1] - A[0][1] * A[1][0];
-  let det = 0;
-  for (let j = 0; j < n; j++) {
-    const minor = A.slice(1).map(row => [...row.slice(0, j), ...row.slice(j + 1)]);
-    det += ((j % 2 === 0) ? 1 : -1) * A[0][j] * matDet(minor);
-  }
-  return det;
-}
-
-function matInv(A) {
-  /** Gaussian elimination with partial pivoting */
-  const n = A.length;
-  const I = eye(n);
-  const aug = A.map((row, i) => [...row, ...I[i]]);
-
-  for (let col = 0; col < n; col++) {
-    let maxRow = col;
-    let maxVal = Math.abs(aug[col][col]);
-    for (let row = col + 1; row < n; row++) {
-      if (Math.abs(aug[row][col]) > maxVal) {
-        maxVal = Math.abs(aug[row][col]);
-        maxRow = row;
-      }
-    }
-    if (maxVal < 1e-12) throw new Error("Matrix is singular or nearly singular");
-
-    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
-
-    const pivot = aug[col][col];
-    for (let j = 0; j < 2 * n; j++) aug[col][j] /= pivot;
-
-    for (let row = 0; row < n; row++) {
-      if (row === col) continue;
-      const factor = aug[row][col];
-      for (let j = 0; j < 2 * n; j++) {
-        aug[row][j] -= factor * aug[col][j];
-      }
-    }
-  }
-  return aug.map(row => row.slice(n));
-}
-
-function multivariateGaussianPDF(x, mu, cov) {
-  /** Multivariate Gaussian PDF for small dimensions */
-  const d = x.length;
-  try {
-    const invCov = matInv(cov);
-    const detCov = matDet(cov);
-    const safeDet = detCov <= 0 ? 1e-300 : detCov;
-    const diff = vecSub(x, mu);
-    const temp = matVecMul(invCov, diff);
-    const exponent = -0.5 * dot(diff, temp);
-    const coeff = 1.0 / Math.sqrt(Math.pow(2 * Math.PI, d) * safeDet);
-    return coeff * Math.exp(exponent);
-  } catch (e) {
-    return 1e-300;
-  }
-}
-
-function zip(a, b) {
-  return a.map((x, i) => [x, b[i]]);
-}
-
-// ======================== DISCRETE HMM ========================
-
+// Discrete Algorithms (didn't test yet)
 function forwardAlgorithm(obs, Pi, A, B, states, vocab) {
   const wordToIdx = {};
   vocab.forEach((word, i) => { wordToIdx[word] = i; });
@@ -171,12 +8,16 @@ function forwardAlgorithm(obs, Pi, A, B, states, vocab) {
 
   const T = obs.length;
   const N = states.length;
+
+  // alpha[t][s] = probability
   const alpha = Array.from({ length: T }, () => Array(N).fill(0.0));
 
+  // Initialization
   for (let s = 0; s < N; s++) {
     alpha[0][s] = Pi[s] * B[s][obsIdx[0]];
   }
 
+  // Recursion
   for (let t = 1; t < T; t++) {
     for (let s = 0; s < N; s++) {
       for (let prevS = 0; prevS < N; prevS++) {
@@ -185,7 +26,9 @@ function forwardAlgorithm(obs, Pi, A, B, states, vocab) {
     }
   }
 
+  // Total Probability
   const prob = alpha[T - 1].reduce((a, b) => a + b, 0);
+  console.log(`Forward Algorithm: Total Probability = ${prob}`);
 
   return {
     observation_sequence: obs,
@@ -202,12 +45,16 @@ function backwardAlgorithm(obs, Pi, A, B, states, vocab) {
 
   const T = obs.length;
   const N = states.length;
+
+  // beta[t][s]
   const beta = Array.from({ length: T }, () => Array(N).fill(0.0));
 
+  // Initialization
   for (let s = 0; s < N; s++) {
     beta[T - 1][s] = 1.0;
   }
 
+  // Recursion (backwards)
   for (let t = T - 2; t >= 0; t--) {
     for (let s = 0; s < N; s++) {
       for (let nextS = 0; nextS < N; nextS++) {
@@ -216,10 +63,12 @@ function backwardAlgorithm(obs, Pi, A, B, states, vocab) {
     }
   }
 
+  // Total probability
   let prob = 0.0;
   for (let s = 0; s < N; s++) {
     prob += Pi[s] * B[s][obsIdx[0]] * beta[0][s];
   }
+  console.log(`Backward Algorithm: Total Probability = ${prob}`);
 
   return {
     observation_sequence: obs,
@@ -236,14 +85,18 @@ function viterbiAlgorithm(obs, Pi, A, B, states, vocab) {
 
   const T = obs.length;
   const N = states.length;
+
+  // Viterbi variables
   const V = Array.from({ length: T }, () => Array(N).fill(0.0));
   const bp = Array.from({ length: T }, () => Array(N).fill(0));
 
+  // Initialization
   for (let s = 0; s < N; s++) {
     V[0][s] = Pi[s] * B[s][obsIdx[0]];
     bp[0][s] = 0;
   }
 
+  // Recursion
   for (let t = 1; t < T; t++) {
     for (let s = 0; s < N; s++) {
       let maxProb = 0.0;
@@ -260,6 +113,7 @@ function viterbiAlgorithm(obs, Pi, A, B, states, vocab) {
     }
   }
 
+  // Backtracking
   const bestPathProb = Math.max(...V[T - 1]);
   const bestLastState = V[T - 1].indexOf(bestPathProb);
 
@@ -270,11 +124,12 @@ function viterbiAlgorithm(obs, Pi, A, B, states, vocab) {
   }
 
   const tagSequence = path.map(i => states[i]);
+  const taggedPairs = obs.map((x, i) => [x, tagSequence[i]]);
 
   return {
     observation_sequence: obs,
     best_path: tagSequence,
-    tagged_pairs: zip(obs, tagSequence),
+    tagged_pairs: taggedPairs,
     probability: bestPathProb,
     viterbi_table: V,
     backpointer_table: bp,
@@ -296,6 +151,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
   const likelihoodHistory = [];
 
   for (let iter = 0; iter < iterations; iter++) {
+    // Process all sequences
     const piNumerator = Array(N).fill(0.0);
     const aNumerator = Array.from({ length: N }, () => Array(N).fill(0.0));
     const aDenominator = Array(N).fill(0.0);
@@ -311,6 +167,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
       for (let s = 0; s < N; s++) {
         alpha[0][s] = piNew[s] * bNew[s][obsIdx[0]];
       }
+
       for (let t = 1; t < T; t++) {
         for (let s = 0; s < N; s++) {
           for (let prevS = 0; prevS < N; prevS++) {
@@ -327,6 +184,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
       for (let s = 0; s < N; s++) {
         beta[T - 1][s] = 1.0;
       }
+
       for (let t = T - 2; t >= 0; t--) {
         for (let s = 0; s < N; s++) {
           for (let nextS = 0; nextS < N; nextS++) {
@@ -335,7 +193,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
         }
       }
 
-      // E-step
+      // E-step: compute gamma
       if (probObs > 0) {
         for (let t = 0; t < T; t++) {
           for (let s = 0; s < N; s++) {
@@ -357,7 +215,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
       }
     }
 
-    // M-step
+    // M-step: update parameters
     const piTotal = piNumerator.reduce((a, b) => a + b, 0);
     if (piTotal > 0) {
       piNew = piNumerator.map(x => x / piTotal);
@@ -402,16 +260,47 @@ function solveNumericalHMM(algorithm, obs, PiInput, AInput, BInput, states, voca
   }
 }
 
-// ======================== CONTINUOUS 1D HMM ========================
-
-function gaussianEmissionMatrix(obsValues, means, sigmas) {
-  const N = means.length;
-  const T = obsValues.length;
-  return Array.from({ length: N }, (_, s) =>
-    Array.from({ length: T }, (_, t) => gaussianPDF(obsValues[t], means[s], sigmas[s]))
-  );
+// -------------------- Continuous HMM --------------------
+function gaussianPDF(o, mu, sigma) {
+  const safeSigma = sigma <= 0 ? 1e-9 : sigma;
+  const coeff = 1.0 / Math.sqrt(2 * Math.PI * safeSigma);
+  const exponent = -0.5 * (Math.pow(o - mu, 2) / safeSigma);
+  return coeff * Math.exp(exponent);
 }
 
+function gaussianEmissionMatrix(obsValues, means, sigmas) {
+  /************************************
+   * obsValues: T ovservations
+   * means: N state means
+   * sigmas: N state variances
+   */
+  
+  const N = means.length;
+  const T = obsValues.length;
+  const B = Array.from({ length: N }, (_, s) =>
+    Array.from({ length: T }, (_, t) => gaussianPDF(obsValues[t], means[s], sigmas[s]))
+  );
+  return B;
+}
+
+function multivariateGaussianPDF(x, mu, cov) {
+  /** Multivariate Gaussian PDF for small dimensions */
+  const d = x.length;
+  try {
+    const invCov = Math.inv(cov);
+    const detCov = Math.det(cov);
+    const safeDet = detCov <= 0 ? 1e-300 : detCov;
+    const diff = Math.sub(x, mu);
+    const temp = Math.multiply(invCov, diff);
+    const exponent = -0.5 * Math.dot(diff, temp);
+    const coeff = 1.0 / Math.sqrt(Math.pow(2 * Math.PI, d) * safeDet);
+    return coeff * Math.exp(exponent);
+  } catch (e) {
+    return 1e-300;
+  }
+}
+
+// 1D Algorithms
 function continuous1DForward(obsValues, Pi, A, means, sigmas, states) {
   const T = obsValues.length;
   const N = states.length;
@@ -421,6 +310,7 @@ function continuous1DForward(obsValues, Pi, A, means, sigmas, states) {
   for (let s = 0; s < N; s++) {
     alpha[0][s] = Pi[s] * B[s][0];
   }
+
   for (let t = 1; t < T; t++) {
     for (let s = 0; s < N; s++) {
       for (let ps = 0; ps < N; ps++) {
@@ -450,6 +340,7 @@ function continuous1DBackward(obsValues, Pi, A, means, sigmas, states) {
   for (let s = 0; s < N; s++) {
     beta[T - 1][s] = 1.0;
   }
+
   for (let t = T - 2; t >= 0; t--) {
     for (let s = 0; s < N; s++) {
       for (let ns = 0; ns < N; ns++) {
@@ -480,6 +371,7 @@ function continuous1DViterbi(obsValues, Pi, A, means, sigmas, states) {
   for (let s = 0; s < N; s++) {
     V[0][s] = Pi[s] * B[s][0];
   }
+
   for (let t = 1; t < T; t++) {
     for (let s = 0; s < N; s++) {
       let bestP = 0.0, bestS = 0;
@@ -499,6 +391,7 @@ function continuous1DViterbi(obsValues, Pi, A, means, sigmas, states) {
   const bestLast = V[T - 1].indexOf(bestProb);
   const path = Array(T).fill(0);
   path[T - 1] = bestLast;
+
   for (let t = T - 2; t >= 0; t--) {
     path[t] = bp[t + 1][path[t + 1]];
   }
@@ -591,12 +484,14 @@ function continuous1DBaumWelch(obsSequences, Pi, A, means, sigmas, states, itera
     if (piTotal > 0) {
       piNew = piNum.map(x => x / piTotal);
     }
+
     for (let s = 0; s < N; s++) {
       if (aDen[s] > 0) {
         for (let ns = 0; ns < N; ns++) {
           aNew[s][ns] = aNum[s][ns] / aDen[s];
         }
       }
+
       if (muDen[s] > 0) {
         muNew[s] = muNum[s] / muDen[s];
         sigmaNew[s] = Math.sqrt(Math.max(sigNum[s] / muDen[s], 1e-9));
@@ -616,9 +511,13 @@ function continuous1DBaumWelch(obsSequences, Pi, A, means, sigmas, states, itera
   };
 }
 
-// ======================== CONTINUOUS N-D HMM ========================
-
+// N-D Algorithms
 function continuousNDForward(obsValues, Pi, A, means, covariances, states) {
+  /*
+  obs_values   : list of list[float]  shape (T, d)
+  means        : list of list[float]  shape (N, d)
+  covariances  : list of list[list[float]]  shape (N, d, d)
+   */
   const T = obsValues.length;
   const N = states.length;
   const B = Array.from({ length: N }, (_, s) =>
@@ -628,9 +527,11 @@ function continuousNDForward(obsValues, Pi, A, means, covariances, states) {
   );
 
   const alpha = Array.from({ length: T }, () => Array(N).fill(0.0));
+
   for (let s = 0; s < N; s++) {
     alpha[0][s] = Pi[s] * B[s][0];
   }
+
   for (let t = 1; t < T; t++) {
     for (let s = 0; s < N; s++) {
       for (let ps = 0; ps < N; ps++) {
@@ -690,10 +591,12 @@ function continuousNDViterbi(obsValues, Pi, A, means, covariances, states) {
   }
 
   const tagSeq = path.map(i => states[i]);
+  const taggedPairs = obsValues.map((o, i) => [JSON.stringify(o), tagSeq[i]]);
+
   return {
     observation_sequence: obsValues,
     best_path: tagSeq,
-    tagged_pairs: zip(obsValues.map(o => JSON.stringify(o)), tagSeq),
+    tagged_pairs: taggedPairs,
     probability: bestProb,
     viterbi_table: V,
     states: states,
@@ -765,9 +668,9 @@ function continuousNDBaumWelch(obsSequences, Pi, A, means, covariances, states, 
             const g = (alpha[t][s] * beta[t][s]) / probObs;
             if (t === 0) piNum[s] += g;
             muDen[s] += g;
-            muNum[s] = vecAdd(muNum[s], vecScale(o, g));
-            const diff = vecSub(o, muNew[s]);
-            covNum[s] = matAdd(covNum[s], matScale(outer(diff, diff), g));
+            muNum[s] += g * o;
+            const diff = o.map((v, i) => v - muNew[s][i]);
+            covNum[s] += g * Math.outer(diff, diff);
             if (t < T - 1) {
               aDen[s] += g;
               for (let ns = 0; ns < N; ns++) {
@@ -784,16 +687,19 @@ function continuousNDBaumWelch(obsSequences, Pi, A, means, covariances, states, 
     if (piTotal > 0) {
       piNew = piNum.map(x => x / piTotal);
     }
+
     for (let s = 0; s < N; s++) {
       if (aDen[s] > 0) {
         for (let ns = 0; ns < N; ns++) {
           aNew[s][ns] = aNum[s][ns] / aDen[s];
         }
       }
+
       if (muDen[s] > 0) {
-        muNew[s] = vecScale(muNum[s], 1.0 / muDen[s]);
-        const regularized = matAdd(matScale(covNum[s], 1.0 / muDen[s]), matScale(eye(d), 1e-6));
-        covNew[s] = regularized;
+        muNew[s] = Math.dotDivide(muNum[s], muDen[s]);
+        const devision = Math.dotDivide(covNum[s], muDen[s]);
+        const identity = Math.multiply(Math.eye(d), 1e-6);
+        covNew[s] = Math.add(devision, identity);
       }
     }
   }
@@ -809,8 +715,6 @@ function continuousNDBaumWelch(obsSequences, Pi, A, means, covariances, states, 
     emission_type: 'gaussian_nd',
   };
 }
-
-// ======================== SOLVERS & UTILITIES ========================
 
 function solveContinuousHMM(algorithm, obsValues, Pi, A, means, sigmasOrCovs, states, dimension = '1d', iterations = 5) {
   if (dimension === '1d') {
@@ -836,7 +740,7 @@ function solveContinuousHMM(algorithm, obsValues, Pi, A, means, sigmasOrCovs, st
       return continuousNDViterbi(obsFloat, Pi, A, means, covs, states);
     } else if (algorithm === 'baum_welch') {
       return continuousNDBaumWelch([obsFloat], Pi, A, means, covs, states, iterations);
-    } else {
+      } else {
       throw new Error(`Algorithm '${algorithm}' not supported for nd continuous HMM`);
     }
   }
@@ -845,10 +749,11 @@ function solveContinuousHMM(algorithm, obsValues, Pi, A, means, sigmasOrCovs, st
 function discretizeContinuous(obsValues, means, sigmas, states, symbols, intervals) {
   /**
    * Convert continuous Gaussian HMM to discrete by integrating N(mu, sigma^2) over symbol intervals.
-   * NOTE: This fixes a CDF bug in the original Python (negative z-scores were handled incorrectly).
    */
   const N = states.length;
   const M = symbols.length;
+
+  const norm = new NormalDistribution(0, 1);
 
   const B = [];
   for (let s = 0; s < N; s++) {
@@ -858,14 +763,20 @@ function discretizeContinuous(obsValues, means, sigmas, states, symbols, interva
     for (const [lo, hi] of intervals) {
       if (lo === -Infinity) {
         const z = (hi - mu) / sigma;
-        row.push(normalCDF(z));
+        if(z >= 0) row.push(norm.cdf(z));
+        else row.push(norm.cdf(Math.abs(z)));
       } else if (hi === Infinity) {
         const z = (lo - mu) / sigma;
-        row.push(1 - normalCDF(z));
+        if (z >= 0) row.push(1 - norm.cdf(z));
+        else row.push(1 - norm.cdf(Math.abs(z)));
       } else {
         const z1 = (hi - mu) / sigma;
         const z2 = (lo - mu) / sigma;
-        row.push(normalCDF(z1) - normalCDF(z2));
+        if (z1 >= 0) phi_hi = norm.cdf(z1);
+        else phi_hi = 1 - norm.cdf(Math.abs(z1));
+        if (z2 >= 0) phi_lo = norm.cdf(z2);
+        else phi_lo = 1 - norm.cdf(Math.abs(z2));
+        row.push(phi_hi - phi_lo);
       }
     }
     B.push(row);
@@ -894,7 +805,6 @@ function discretizeContinuous(obsValues, means, sigmas, states, symbols, interva
 }
 
 // ======================== EXPORTS ========================
-
 export {
   // Discrete
   forwardAlgorithm,
