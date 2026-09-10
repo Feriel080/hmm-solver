@@ -10,5 +10,3 @@ node_modules
 .next/
 .DS_Store
 __pycache__
-
-lib/test.js
