@@ -16,6 +16,7 @@ try:
             data['b'],
             data['states'],
             data['vocab'],
+            data.get('iterations', 5)
         )
         
     elif data['type'] == 'numerical-continuous':

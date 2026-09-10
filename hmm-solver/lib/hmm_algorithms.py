@@ -207,7 +207,7 @@ def baum_welch_algorithm(obs_sequences, Pi, A, B, states, vocab, iterations = 5)
         'vocab': vocab
     }
 
-def solve_numerical_hmm(algorithm, obs, Pi_input, A_input, B_input, states, vocab):
+def solve_numerical_hmm(algorithm, obs, Pi_input, A_input, B_input, states, vocab, iterations = 5):
     """Solve HMM with given numerical parameters"""
     
     if algorithm == 'forward':
@@ -217,7 +217,7 @@ def solve_numerical_hmm(algorithm, obs, Pi_input, A_input, B_input, states, voca
     elif algorithm == 'viterbi':
         return viterbi_algorithm(obs, Pi_input, A_input, B_input, states, vocab)
     elif algorithm == 'baum_welch':
-        return baum_welch_algorithm([obs], Pi_input, A_input, B_input, states, vocab)
+        return baum_welch_algorithm([obs], Pi_input, A_input, B_input, states, vocab, iterations)
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
 

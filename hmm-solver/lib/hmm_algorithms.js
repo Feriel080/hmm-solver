@@ -28,7 +28,6 @@ function forwardAlgorithm(obs, Pi, A, B, states, vocab) {
 
   // Total Probability
   const prob = alpha[T - 1].reduce((a, b) => a + b, 0);
-  console.log(`Forward Algorithm: Total Probability = ${prob}`);
 
   return {
     observation_sequence: obs,
@@ -68,7 +67,6 @@ function backwardAlgorithm(obs, Pi, A, B, states, vocab) {
   for (let s = 0; s < N; s++) {
     prob += Pi[s] * B[s][obsIdx[0]] * beta[0][s];
   }
-  console.log(`Backward Algorithm: Total Probability = ${prob}`);
 
   return {
     observation_sequence: obs,
@@ -246,7 +244,7 @@ function baumWelchAlgorithm(obsSequences, Pi, A, B, states, vocab, iterations = 
   };
 }
 
-function solveNumericalHMM(algorithm, obs, PiInput, AInput, BInput, states, vocab) {
+function solveNumericalHMM(algorithm, obs, PiInput, AInput, BInput, states, vocab, iterations=5) {
   if (algorithm === 'forward') {
     return forwardAlgorithm(obs, PiInput, AInput, BInput, states, vocab);
   } else if (algorithm === 'backward') {
@@ -254,7 +252,7 @@ function solveNumericalHMM(algorithm, obs, PiInput, AInput, BInput, states, voca
   } else if (algorithm === 'viterbi') {
     return viterbiAlgorithm(obs, PiInput, AInput, BInput, states, vocab);
   } else if (algorithm === 'baum_welch') {
-    return baumWelchAlgorithm([obs], PiInput, AInput, BInput, states, vocab);
+    return baumWelchAlgorithm([obs], PiInput, AInput, BInput, states, vocab, iterations);
   } else {
     throw new Error(`Unknown algorithm: ${algorithm}`);
   }
@@ -397,10 +395,11 @@ function continuous1DViterbi(obsValues, Pi, A, means, sigmas, states) {
   }
 
   const tagSeq = path.map(i => states[i]);
+  const taggedPairs = obsValues.map((o, i) => [o, tagSeq[i]]);
   return {
     observation_sequence: obsValues,
     best_path: tagSeq,
-    tagged_pairs: zip(obsValues, tagSeq),
+    tagged_pairs: taggedPairs,
     probability: bestProb,
     viterbi_table: V,
     backpointer_table: bp,
@@ -830,18 +829,4 @@ export {
   // Solvers & Utils
   solveContinuousHMM,
   discretizeContinuous,
-
-  // Math helpers (exported in case you need them elsewhere)
-  normalCDF,
-  matInv,
-  matDet,
-  matMul,
-  matVecMul,
-  vecAdd,
-  vecSub,
-  vecScale,
-  dot,
-  outer,
-  eye,
-  zeros,
 };
