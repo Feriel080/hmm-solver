@@ -1,4 +1,24 @@
-import gaussianEmissionMatrix from './helping_functions.js';
+function gaussianPDF(o, mu, sigma) {
+  const safeSigma = sigma <= 0 ? 1e-9 : sigma;
+  const coeff = 1.0 / Math.sqrt(2 * Math.PI * safeSigma);
+  const exponent = -0.5 * (Math.pow(o - mu, 2) / safeSigma);
+  return coeff * Math.exp(exponent);
+}
+
+function gaussianEmissionMatrix(obsValues, means, sigmas) {
+  /************************************
+   * obsValues: T ovservations
+   * means: N state means
+   * sigmas: N state variances
+   */
+
+  const N = means.length;
+  const T = obsValues.length;
+  const B = Array.from({ length: N }, (_, s) =>
+    Array.from({ length: T }, (_, t) => gaussianPDF(obsValues[t], means[s], sigmas[s]))
+  );
+  return B;
+}
 
 function continuous1DForward(obsValues, Pi, A, means, sigmas, states) {
     const T = obsValues.length;

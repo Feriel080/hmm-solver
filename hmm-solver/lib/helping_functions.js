@@ -1,26 +1,6 @@
 import NormalDistribution from 'normal-distribution';
-
-function gaussianPDF(o, mu, sigma) {
-  const safeSigma = sigma <= 0 ? 1e-9 : sigma;
-  const coeff = 1.0 / Math.sqrt(2 * Math.PI * safeSigma);
-  const exponent = -0.5 * (Math.pow(o - mu, 2) / safeSigma);
-  return coeff * Math.exp(exponent);
-}
-
-function gaussianEmissionMatrix(obsValues, means, sigmas) {
-  /************************************
-   * obsValues: T ovservations
-   * means: N state means
-   * sigmas: N state variances
-   */
-
-  const N = means.length;
-  const T = obsValues.length;
-  const B = Array.from({ length: N }, (_, s) =>
-    Array.from({ length: T }, (_, t) => gaussianPDF(obsValues[t], means[s], sigmas[s]))
-  );
-  return B;
-}
+import { continuous1DForward, continuous1DBackward, continuous1DViterbi, continuous1DBaumWelch } from './continuous_1d';
+import { continuousNDForward, continuousNDViterbi, continuousNDBaumWelch } from './continuous_nd';
 
 function multivariateGaussianPDF(x, mu, cov) {
   /** Multivariate Gaussian PDF for small dimensions */
@@ -128,7 +108,6 @@ function discretizeContinuous(obsValues, means, sigmas, states, symbols, interva
 }
 
 export {
-  gaussianEmissionMatrix,
   multivariateGaussianPDF,
   solveContinuousHMM,
   discretizeContinuous,
