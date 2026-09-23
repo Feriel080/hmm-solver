@@ -1,51 +1,58 @@
-import { spawn } from 'child_process';
-
-function executeCommand(command: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args);
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    child.on('error', (error) => {
-      reject(error);
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Process exited with code ${code}: ${stderr}`));
-      } else {
-        resolve(stdout);
-      }
-    });
-
-    // Set a timeout
-    setTimeout(() => {
-      child.kill();
-      reject(new Error('Python process timeout'));
-    }, 30000);
-  });
-}
+import { solveNumericalHMM } from '../../../lib/discrete_hmm.js';
+import { solveContinuousHMM, discretizeContinuous } from '../../../lib/helping_functions.js';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Execute Python executor with JSON argument
-    const pythonScript = 'lib/hmm_executor.py';
-    const jsonArg = JSON.stringify(body);
+    if (body.type === 'numerical-discrete') {
+      const result = solveNumericalHMM(
+        body.algorithm,
+        body.observation,
+        body.pi,
+        body.a,
+        body.b,
+        body.states,
+        body.vocab,
+        body.iterations ?? 5
+      );
 
-    const stdout = await executeCommand('py', [pythonScript, jsonArg]);
+      return Response.json(result);
+    }
 
-    const result = JSON.parse(stdout);
-    return Response.json(result);
+    if (body.type === 'numerical-continuous') {
+      const result = solveContinuousHMM(
+        body.algorithm,
+        body.observation,
+        body.pi,
+        body.a,
+        body.means,
+        body.sigmas_or_covs,
+        body.states,
+        body.dimension ?? '1d',
+        body.iterations ?? 5
+      );
+
+      return Response.json(result);
+    }
+
+    if (body.type === 'convert-to-discrete') {
+      const result = discretizeContinuous(
+        body.observation,
+        body.means,
+        body.sigmas,
+        body.states,
+        body.symbols,
+        (body.intervals ?? []).map(([lo, hi]) => [
+          lo == null ? -Infinity : lo,
+          hi == null ? Infinity : hi,
+        ])
+      );
+
+      return Response.json(result);
+    }
+
+    return Response.json({ error: 'Invalid type' }, { status: 400 });
   } catch (error: any) {
     console.error('API error:', error);
     return Response.json(
