@@ -268,9 +268,5 @@ function solveNumericalHMM(algorithm, obs, Pi, A, B, states, vocab, iterations =
 }
 
 export {
-    forwardAlgorithm,
-    backwardAlgorithm,
-    viterbiAlgorithm,
-    baumWelchAlgorithm,
     solveNumericalHMM,
 }
