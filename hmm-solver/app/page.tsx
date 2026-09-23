@@ -88,6 +88,7 @@ export default function Home() {
             b: params.b,
             states,
             vocab,
+            iterations: params.bwIterations,
           }).then(data => ({ algo, data }))
         )
       );
@@ -376,6 +377,7 @@ export default function Home() {
                     onParametersChange={handleDiscreteChange}
                     initialB={convertedB}
                     initialObservation={convertedObs}
+
                   />
                 </Card>
                 <div>
